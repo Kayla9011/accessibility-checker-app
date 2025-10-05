@@ -6,28 +6,11 @@ A web-based platform that evaluates any public website against Australian access
 
 ### Install dependencies
 ```bash
-npm install
+npm i
 ```
 
 ### Run in development
 ```bash
-npm start
+npm run dev
 ```
 App will be available at [http://localhost:3000](http://localhost:3000).
-
-### Run tests
-```bash
-npm test
-```
-
-### Build for production
-```bash
-npm run build
-```
-
-## 📦 Deployment
-Instructions for deploying the app (e.g. Vercel, Netlify, GitHub Pages).
-
-## 🔗 Learn More
-- [React Documentation](https://reactjs.org/)
-- [Create React App Documentation](https://create-react-app.dev/)
