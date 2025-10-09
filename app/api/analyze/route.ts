@@ -1,18 +1,23 @@
-import { z } from "zod"
-
-const analyzeSchema = z.object({
-  url: z.string().url("Please provide a valid URL"),
-})
+// app/api/analyze/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+import type {
+  AccessibilityResults,
+  AccessibilityViolation,
+  AccessibilityPass,
+} from "@/lib/types";
 
 const getRecommendation = (violationId: string) => {
   const recommendations = {
     "color-contrast": {
       id: "color-contrast",
       title: "Improve Color Contrast",
-      description: "Ensure sufficient color contrast between text and background colors to meet WCAG AA standards.",
+      description:
+        "Ensure sufficient color contrast between text and background colors to meet WCAG AA standards.",
       priority: "high" as const,
       effort: "easy" as const,
-      impact: "Improves readability for users with visual impairments and low vision",
+      impact:
+        "Improves readability for users with visual impairments and low vision",
       steps: [
         "Use a color contrast checker tool to test current contrast ratios",
         "Adjust text color, background color, or both to achieve minimum 4.5:1 ratio for normal text",
@@ -48,10 +53,12 @@ const getRecommendation = (violationId: string) => {
     "image-alt": {
       id: "image-alt",
       title: "Add Alternative Text to Images",
-      description: "Provide meaningful alternative text for images to make content accessible to screen reader users.",
+      description:
+        "Provide meaningful alternative text for images to make content accessible to screen reader users.",
       priority: "high" as const,
       effort: "easy" as const,
-      impact: "Essential for screen reader users to understand image content and context",
+      impact:
+        "Essential for screen reader users to understand image content and context",
       steps: [
         "Identify all images missing alt attributes",
         "Write descriptive alt text that conveys the purpose and content of each image",
@@ -81,10 +88,12 @@ const getRecommendation = (violationId: string) => {
     "heading-order": {
       id: "heading-order",
       title: "Fix Heading Structure",
-      description: "Ensure headings follow a logical hierarchical order for proper document structure.",
+      description:
+        "Ensure headings follow a logical hierarchical order for proper document structure.",
       priority: "medium" as const,
       effort: "moderate" as const,
-      impact: "Helps screen reader users navigate content efficiently and understand page structure",
+      impact:
+        "Helps screen reader users navigate content efficiently and understand page structure",
       steps: [
         "Review current heading structure (h1, h2, h3, etc.)",
         "Ensure only one h1 per page (typically the main page title)",
@@ -112,10 +121,12 @@ const getRecommendation = (violationId: string) => {
     "link-name": {
       id: "link-name",
       title: "Provide Descriptive Link Text",
-      description: "Ensure all links have meaningful text that describes their purpose or destination.",
+      description:
+        "Ensure all links have meaningful text that describes their purpose or destination.",
       priority: "high" as const,
       effort: "easy" as const,
-      impact: "Critical for screen reader users to understand link purposes and navigate effectively",
+      impact:
+        "Critical for screen reader users to understand link purposes and navigate effectively",
       steps: [
         "Review all links that contain only icons or non-descriptive text",
         "Add descriptive text or aria-label attributes to clarify link purpose",
@@ -139,21 +150,63 @@ const getRecommendation = (violationId: string) => {
         },
       ],
     },
-  }
+  };
 
-  return recommendations[violationId as keyof typeof recommendations]
+  return recommendations[violationId as keyof typeof recommendations];
+};
+
+const analyzeSchema = z.object({
+  url: z.string().url("Please provide a valid URL"),
+});
+
+// --- helpers to shape mock into your types ---
+function buildSummary(
+  violations: AccessibilityViolation[],
+  passes: AccessibilityPass[]
+) {
+  const counts = { critical: 0, serious: 0, moderate: 0, minor: 0 };
+  for (const v of violations) {
+    counts[v.impact]++;
+  }
+  return {
+    total: violations.length + passes.length,
+    violations: violations.length,
+    passes: passes.length,
+    ...counts,
+  };
 }
 
-// Mock accessibility analysis function
-async function analyzeAccessibility(url: string) {
-  // Simulate API delay
-  await new Promise((resolve) => setTimeout(resolve, 2000))
+function scoreFromCounts(c: {
+  critical: number;
+  serious: number;
+  moderate: number;
+  minor: number;
+}) {
+  // very simple scoring heuristic for mock
+  const penalty =
+    c.critical * 30 + c.serious * 20 + c.moderate * 10 + c.minor * 5;
+  return Math.max(0, 100 - penalty);
+}
 
-  // Mock analysis results - in a real implementation, this would use axe-core or similar
-  const violations = [
+function gradeFromScore(score: number): AccessibilityResults["grade"] {
+  if (score >= 90) return "A";
+  if (score >= 80) return "B";
+  if (score >= 70) return "C";
+  if (score >= 60) return "D";
+  return "F";
+}
+
+// --- mock analyzer wired up to return a valid AccessibilityResults ---
+async function analyzeAccessibility(
+  url: string
+): Promise<AccessibilityResults> {
+  // simulate latency
+  await new Promise((r) => setTimeout(r, 1200));
+
+  const violations: AccessibilityViolation[] = [
     {
       id: "color-contrast",
-      impact: "serious" as const,
+      impact: "serious",
       description: "Elements must have sufficient color contrast",
       help: "Ensure all text elements have sufficient color contrast between text and background colors to meet WCAG AA contrast ratio thresholds",
       helpUrl: "https://dequeuniversity.com/rules/axe/4.7/color-contrast",
@@ -169,7 +222,7 @@ async function analyzeAccessibility(url: string) {
     },
     {
       id: "image-alt",
-      impact: "critical" as const,
+      impact: "critical",
       description: "Images must have alternate text",
       help: "Ensures <img> elements have alternate text or a role of none or presentation",
       helpUrl: "https://dequeuniversity.com/rules/axe/4.7/image-alt",
@@ -177,14 +230,15 @@ async function analyzeAccessibility(url: string) {
         {
           target: ['img[src="hero.jpg"]'],
           html: '<img src="hero.jpg" width="400" height="300">',
-          failureSummary: "Fix any of the following: Element does not have an alt attribute",
+          failureSummary:
+            "Fix any of the following: Element does not have an alt attribute",
         },
       ],
       recommendation: getRecommendation("image-alt"),
     },
     {
       id: "heading-order",
-      impact: "moderate" as const,
+      impact: "moderate",
       description: "Heading levels should only increase by one",
       help: "Ensures the order of headings is semantically correct",
       helpUrl: "https://dequeuniversity.com/rules/axe/4.7/heading-order",
@@ -199,7 +253,7 @@ async function analyzeAccessibility(url: string) {
     },
     {
       id: "link-name",
-      impact: "serious" as const,
+      impact: "serious",
       description: "Links must have discernible text",
       help: "Ensures links have discernible text",
       helpUrl: "https://dequeuniversity.com/rules/axe/4.7/link-name",
@@ -207,10 +261,58 @@ async function analyzeAccessibility(url: string) {
         {
           target: ['a[href="/contact"]'],
           html: '<a href="/contact"><span class="icon"></span></a>',
-          failureSummary: "Fix any of the following: Element does not have text that is visible to screen readers",
+          failureSummary:
+            "Fix any of the following: Element does not have text that is visible to screen readers",
         },
       ],
       recommendation: getRecommendation("link-name"),
     },
-  ]
+  ];
+
+  const passes: AccessibilityPass[] = [
+    {
+      id: "document-title",
+      description: "Document has a non-empty <title>",
+      help: "Ensures pages have a title that describes topic or purpose",
+    },
+    {
+      id: "landmark-one-main",
+      description: "Page has a main landmark",
+      help: "Ensures the page has at least one main landmark for navigation",
+    },
+  ];
+
+  const summary = buildSummary(violations, passes);
+  const score = scoreFromCounts(summary);
+  const grade = gradeFromScore(score);
+
+  const results: AccessibilityResults = {
+    url,
+    score,
+    grade,
+    violations,
+    passes,
+    summary,
+    analyzedAt: new Date().toISOString(),
+    testEngine: "axe-core@4.7 (mock)",
+  };
+
+  return results;
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const parsed = analyzeSchema.safeParse(body);
+    if (!parsed.success) {
+      const msg = parsed.error.issues[0]?.message ?? "Invalid request body";
+      return NextResponse.json({ error: msg }, { status: 400 });
+    }
+
+    const results = await analyzeAccessibility(parsed.data.url);
+    return NextResponse.json(results, { status: 200 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Internal error";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

@@ -1,18 +1,28 @@
 import type { AccessibilityResults } from "./types"
 
 export async function analyzeWebsite(url: string): Promise<AccessibilityResults> {
-  const response = await fetch("/api/analyze", {
+  const res = await fetch("/api/analyze", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ url }),
   })
 
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.error || "Failed to analyze website")
+  const raw = await res.text()
+
+  if (!res.ok) {
+    try {
+      const { error } = JSON.parse(raw)
+      throw new Error(error || `Request failed (${res.status})`)
+    } catch {
+      throw new Error(raw?.trim() || `Request failed (${res.status})`)
+    }
   }
 
-  return response.json()
+  if (!raw) throw new Error("Empty response from server")
+
+  try {
+    return JSON.parse(raw) as AccessibilityResults
+  } catch {
+    throw new Error("Invalid JSON from server")
+  }
 }
