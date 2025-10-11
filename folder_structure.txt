@@ -1,0 +1,21 @@
+backend-b/
+├─ app/
+│  ├─ main.py          # FastAPI entry point & public API routes
+│  ├─ analyzer.py      # Executes Node worker or mock fallback
+│  ├─ models.py        # Pydantic data models
+│  ├─ scoring.py       # Scoring & penalty logic
+│  ├─ storage.py       # In-memory job store (Redis-ready)
+│  ├─ settings.py      # Config & env variables
+│  └─ __init__.py
+│
+├─ worker/
+│  ├─ audit_worker.mjs # Node: Playwright + Lighthouse + axe-core
+│  └─ package.json     # Node dependencies
+│
+├─ tests/
+│  ├─ test_scoring.py
+│  └─ test_api_mock.py
+│
+├─ requirements.txt
+├─ .gitignore
+└─ README.md

@@ -1,0 +1,13 @@
+{
+  "name": "backend-b-audit-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "postinstall": "npx playwright install --with-deps chromium"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "^4.9.0",
+    "lighthouse": "^12.0.0",
+    "playwright": "^1.46.0"
+  }
+}
