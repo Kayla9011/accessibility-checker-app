@@ -1,6 +1,7 @@
 // app/api/analyze/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import puppeteer from "puppeteer";
 import type {
   AccessibilityResults,
   AccessibilityViolation,

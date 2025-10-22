@@ -22,6 +22,18 @@ export default function HomePage() {
     return <ResultsDashboard results={results} onBack={handleBack} />
   }
 
+  async function scrapePage(url) {
+  const res = await fetch("/api/scrape", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+  });
+
+  const data = await res.json();
+  console.log("Packaged scrape:", data);
+}
+
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
