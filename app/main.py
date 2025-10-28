@@ -1,23 +1,26 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .models import CreateAuditBody, AuditResult, Caps
-from . import storage, analyzer, scoring
+from . import analyzer, scoring, storage, settings
 
 app = FastAPI(title="Backend B - Accessibility Analyzer", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # tighten later
+    allow_origins=settings.ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+@app.get("/health")
+def health():
+    return {"ok": True}
+
 @app.post("/api/audits")
 def create_audit(body: CreateAuditBody):
+    # sync analysis, write results to storage
     job_id = storage.new_job(str(body.url))
     job = storage.get_job(job_id)
-    job.status = "running"
-    storage.save_job(job)
 
     try:
         lh_score, violations, raw = analyzer.analyze(job.url, body.html)
@@ -25,18 +28,25 @@ def create_audit(body: CreateAuditBody):
         merged = scoring.merge_scores(lh_score, penalty)
         capped, cap_info = scoring.apply_caps(merged, violations)
 
-        job.score = capped
-        job.caps = Caps(critical_cap_applied=cap_info["applied"], cap_reason=cap_info["reason"])
-        job.violations = violations
-        job.raw = raw
-        job.status = "done"
-        storage.save_job(job)
+        result = AuditResult(
+            job_id=job_id,
+            url=job.url,
+            status="done",
+            score=capped,
+            caps=Caps(
+                critical_cap_applied=bool(cap_info.get("applied")),
+                cap_reason=cap_info.get("reason")
+            ),
+            violations=violations,
+            raw=raw,
+            testEngine="axe+lighthouse",
+        )
+        storage.save_job(result)
+        return {"job_id": job_id}
     except Exception as e:
         job.status = "failed"
         storage.save_job(job)
         raise HTTPException(status_code=500, detail=f"analysis_failed: {e}")
-
-    return {"job_id": job_id}
 
 @app.get("/api/audits/{job_id}", response_model=AuditResult)
 def get_audit(job_id: str):
