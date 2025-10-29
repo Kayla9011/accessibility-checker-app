@@ -1,18 +1,15 @@
+// app/api/scrape/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import puppeteer from "puppeteer";
 
-export async function POST(req) {
+export async function POST(req: NextRequest) {
   const { url } = await req.json();
-
   if (!url) {
-    return new Response(
-      JSON.stringify({ error: "Missing URL" }),
-      { status: 400, headers: { "Content-Type": "application/json" } }
-    );
+    return NextResponse.json({ error: "Missing URL" }, { status: 400 });
   }
 
   let browser;
   try {
-    // 🧭 Launch headless browser
     browser = await puppeteer.launch({
       headless: true,
       args: ["--no-sandbox", "--disable-setuid-sandbox"],
@@ -21,48 +18,23 @@ export async function POST(req) {
     const page = await browser.newPage();
     await page.goto(url, { waitUntil: "networkidle2", timeout: 60000 });
 
-    // 🧩 Extract page content
     const html = await page.content();
     const title = await page.title();
-
-    // Extract all text (visible only)
     const text = await page.evaluate(() => document.body.innerText);
+    const images = await page.$$eval("img", (imgs) => imgs.map((img) => (img as HTMLImageElement).src).filter(Boolean));
 
-    // Extract all image URLs
-    const images = await page.$$eval("img", imgs =>
-      imgs.map(img => img.src).filter(Boolean)
-    );
-
-    // 🧱 Package scraped data
     const packaged = {
       url,
-      metadata: {
-        title,
-        timestamp: new Date().toISOString(),
-      },
-      content: {
-        html,
-        text,
-        images,
-      },
+      metadata: { title, timestamp: new Date().toISOString() },
+      content: { html, text, images },
     };
 
-    // Example: Send packaged data to another API or AI model
-    // await fetch("https://your-ai-endpoint.com/analyze", {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify(packaged),
-    // });
-
-    return new Response(JSON.stringify(packaged), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (err) {
+    return NextResponse.json(packaged, { status: 200 });
+  } catch (err: any) {
     console.error("Scraping failed:", err);
-    return new Response(
-      JSON.stringify({ error: "Scraping failed", details: err.message }),
-      { status: 500, headers: { "Content-Type": "application/json" } }
+    return NextResponse.json(
+      { error: "Scraping failed", details: err?.message ?? "Unknown error" },
+      { status: 500 }
     );
   } finally {
     if (browser) await browser.close();
