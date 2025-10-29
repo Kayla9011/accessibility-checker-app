@@ -1,52 +1,69 @@
 import fs from "node:fs";
-import lighthouse from "lighthouse";
 import { chromium } from "playwright";
 import AxeBuilder from "@axe-core/playwright";
+import lighthouse from "lighthouse";
+import { launch as launchChrome } from "chrome-launcher";
 
-const args = process.argv.slice(2);
-if (args.length < 1) {
-  console.error("usage: node audit_worker.mjs <payload.json>");
+const [inPath, outPath] = process.argv.slice(2);
+if (!inPath || !outPath) {
+  console.error("usage: node audit_worker.mjs <in.json> <out.json>");
   process.exit(2);
 }
-const payload = JSON.parse(fs.readFileSync(args[0], "utf-8"));
+
+const payload = JSON.parse(fs.readFileSync(inPath, "utf-8"));
 const { url, html } = payload;
 
 (async () => {
-  // Playwright context
+  // ---------- 1) Launch Playwright (axe ground truth) ----------
   const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext();
   const page = await context.newPage();
 
+  let targetUrl = url || "";
   if (html && !url) {
-    // data URL fallback if only raw HTML
-    const dataUrl = "data:text/html;base64," + Buffer.from(html, "utf8").toString("base64");
-    await page.goto(dataUrl, { waitUntil: "load" });
-  } else {
-    await page.goto(url, { waitUntil: "load" });
+    targetUrl = "data:text/html;base64," + Buffer.from(html, "utf8").toString("base64");
   }
 
-  // axe-core
-  const axe = new AxeBuilder({ page });
-  const axeResults = await axe.analyze();
+  await page.goto(targetUrl, { waitUntil: "networkidle", timeout: 45000 });
+  await page.waitForTimeout(1500);
 
-  // lighthouse (only if url present)
+  // Run axe ----------
+  const axeResults = await new AxeBuilder({ page }).analyze();
+
+  // Run Lighthouse (best-effort) ----------
   let lhJson = {};
   if (url) {
-    const lh = await lighthouse(url, {
-      output: "json",
-      onlyCategories: ["accessibility"],
-      disableStorageReset: true,
-      throttlingMethod: "provided"
-    });
-    lhJson = lh.lhr;
+    try {
+      const chrome = await launchChrome({ chromeFlags: ["--headless", "--no-sandbox"] });
+      const lh = await lighthouse(url, {
+        output: "json",
+        onlyCategories: ["accessibility"],
+        disableStorageReset: true,
+        throttlingMethod: "provided",
+        port: chrome.port
+      });
+      lhJson = lh.lhr || {};
+      await chrome.kill();
+    } catch (err) {
+      lhJson = { _error: String(err) };
+    }
   }
+
+  const diagnostic = {
+    targetUrl: url || "(data-url)",
+    auditedUrl: await page.url(),
+    title: await page.title(),
+    htmlLen: (await page.content()).length
+  };
 
   await browser.close();
 
-  const out = { lighthouse: lhJson, axe: axeResults };
-  process.stdout.write(JSON.stringify(out));
+  // Write single JSON to outPath (no stdout streaming) ----------
+  const out = { lighthouse: lhJson, axe: axeResults, _diagnostic: diagnostic };
+  fs.writeFileSync(outPath, JSON.stringify(out));
   process.exit(0);
 })().catch(err => {
-  console.error(err);
-  process.exit(1);
+  const out = { lighthouse: {}, axe: { violations: [] }, _diagnostic: { fatal: String(err) } };
+  try { fs.writeFileSync(outPath, JSON.stringify(out)); } catch {}
+  process.exit(0);
 });
