@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .models import CreateAuditBody, AuditResult, Caps
 from . import analyzer, scoring, storage, settings
 
-app = FastAPI(title="Backend B - Accessibility Analyzer", version="0.1.0")
+app = FastAPI(title="Backend B - Accessibility Analyzer", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -14,16 +14,21 @@ app.add_middleware(
 
 @app.get("/health")
 def health():
-    return {"ok": True}
+    return {"ok": True, "name": settings.API_NAME}
 
 @app.post("/api/audits")
 def create_audit(body: CreateAuditBody):
-    # sync analysis, write results to storage
     job_id = storage.new_job(str(body.url))
     job = storage.get_job(job_id)
 
     try:
         lh_score, violations, raw = analyzer.analyze(job.url, body.html)
+
+        # one-line server log for quick sanity
+        diag = raw.get("_diagnostic", {})
+        print("[AUDIT]", job.url, "=>", diag.get("auditedUrl"),
+              "violations:", len(violations), "lh_score:", lh_score)
+
         penalty = scoring.compute_penalty(violations)
         merged = scoring.merge_scores(lh_score, penalty)
         capped, cap_info = scoring.apply_caps(merged, violations)
@@ -35,10 +40,10 @@ def create_audit(body: CreateAuditBody):
             score=capped,
             caps=Caps(
                 critical_cap_applied=bool(cap_info.get("applied")),
-                cap_reason=cap_info.get("reason")
+                cap_reason=cap_info.get("reason"),
             ),
             violations=violations,
-            raw=raw,
+            raw=raw,                # <-- includes _diagnostic
             testEngine="axe+lighthouse",
         )
         storage.save_job(result)
