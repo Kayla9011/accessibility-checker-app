@@ -19,8 +19,8 @@ pip install -r requirements.txt
 
 ### Run the FastAPI server
 ```bash
-uvicorn app.main:app --reload --port 8001
-#Open swagger: http://localhost:8001/docs
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+#Open swagger: http://localhost:8000/docs
 ```
 
 ## Run Tests
