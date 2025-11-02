@@ -39,6 +39,8 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "@vercel/analytics": "latest",
     "autoprefixer": "^10.4.20",
+    "axe-core": "^4.11.0",
+    "chrome-launcher": "^1.2.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
@@ -46,9 +48,13 @@
     "embla-carousel-react": "8.5.1",
     "geist": "latest",
     "input-otp": "1.4.1",
+    "lighthouse": "^13.0.1",
     "lucide-react": "^0.454.0",
     "next": "14.2.16",
     "next-themes": "^0.4.6",
+    "openai": "^6.7.0",
+    "p-queue": "^9.0.0",
+    "playwright": "^1.56.1",
     "puppeteer": "^24.25.0",
     "react": "^18",
     "react-day-picker": "9.8.0",
@@ -60,7 +66,7 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^0.9.9",
-    "zod": "3.25.67"
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
