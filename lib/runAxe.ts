@@ -1,49 +1,53 @@
 // lib/runAxe.ts
+"use server";
+
 import { getBrowser } from "@/lib/browser";
-import { readFile, access } from "node:fs/promises";
 import path from "node:path";
 import { constants as FS } from "node:fs";
-import { createRequire } from "node:module";
+import { readFile, access } from "node:fs/promises";
 
 async function resolveAxePath(): Promise<string> {
-  // 1) 优先用真正的 Node 解析（不要用 RSC 虚拟 require）
+  // 1) 基于项目根目录的真实路径（最不容易被 RSC 干扰）
+  const p1 = path.join(process.cwd(), "node_modules", "axe-core", "axe.min.js");
   try {
-    const require = createRequire(process.cwd() + "/");
-    const p = require.resolve("axe-core/axe.min.js");
-    // 确认文件存在
-    await access(p, FS.R_OK);
-    return p;
-  } catch {}
+    await access(p1, FS.R_OK);
+    return p1;
+  } catch {
+    // ignore
+  }
 
-  // 2) 退回到基于项目根目录的绝对路径
+  // 2) 回退到 createRequire(import.meta.url)（只在 Node 端 & 函数内调用）
   try {
-    const p = path.join(process.cwd(), "node_modules", "axe-core", "axe.min.js");
-    await access(p, FS.R_OK);
-    return p;
-  } catch {}
+    const { createRequire } = await import("node:module");
+    const require = createRequire(import.meta.url);
+    const p2 = require.resolve("axe-core/axe.min.js");
+    await access(p2, FS.R_OK);
+    return p2;
+  } catch {
+    // ignore
+  }
 
-  // 3) 明确提示：没装或路径异常
   throw new Error(
-    "Cannot locate axe-core/axe.min.js. Make sure `npm i axe-core` is installed and Next API route runs on Node.js runtime."
+    "Cannot locate axe-core/axe.min.js"
   );
 }
 
 export async function runAxe(url: string) {
   const browser = await getBrowser();
-  // Playwright 需要用 context 来 bypassCSP
+
+  // Playwright：用 context 才能 bypass CSP
   const context = await browser.newContext({ bypassCSP: true });
   const page = await context.newPage();
 
   try {
-    // Playwright 支持的等待方式
+    // Playwright 没有 "networkidle0"，用 "networkidle"
     await page.goto(url, { waitUntil: "networkidle", timeout: 60_000 });
 
-    // 解析并读取 axe 源码（以内联注入，避免 CSP 限制外链）
+    // 以内联方式注入 axe 源码，避免 CSP 对外链 script 的限制
     const axePath = await resolveAxePath();
     const axeSource = await readFile(axePath, "utf8");
     await page.addScriptTag({ content: axeSource });
 
-    // 只跑 violations，限定 A/AA
     const result = await page.evaluate(async () => {
       // @ts-ignore
       return await axe.run(document, {

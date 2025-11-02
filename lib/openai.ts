@@ -77,19 +77,33 @@ export async function generateRecommendations(
     html: v.nodes?.[0]?.html ?? "",
   }))
 
-  const messages = [
-    { role: "system" as const, content: "You are a web accessibility expert. Output JSON only." },
-    {
-      role: "user" as const,
-      content:
-        `Generate remediation recommendations for each violation in strict JSON object.\n` +
-        `Respond with: { "items": [ ... ] }\n` +
-        `Schema per item: { id, title, description, priority (high|medium|low), effort (easy|moderate|complex), ` +
-        `impact, steps[], codeExample{before,after,language(css|html|js)}, ` +
-        `resources[{title,url,type(guide|tool|documentation)}] }\n` +
-        `Violations: ${JSON.stringify(payload)}`,
-    },
-  ]
+const messages = [
+  {
+    role: "system" as const,
+    content:
+      "You are a senior web accessibility expert. " +
+      "Your task is to provide precise, actionable accessibility remediation recommendations. " +
+      "Do not produce any commentary or unrelated advice. " +
+      "Output strictly valid JSON that can be parsed without errors.",
+  },
+  {
+    role: "user" as const,
+    content:
+      `Generate **only relevant remediation recommendations** for each violation below. ` +
+      `Ignore any unrelated or speculative improvements.\n` +
+      `Respond strictly in JSON format: { "items": [ ... ] }\n` +
+      `Each item must follow this exact schema:\n` +
+      `{ id, title, description, priority (high|medium|low), effort (easy|moderate|complex), ` +
+      `impact, steps[], codeExample{before,after,language(css|html|js)}, ` +
+      `resources[{title,url,type(guide|tool|documentation)}] }\n\n` +
+      `Violations: ${JSON.stringify(payload, null, 2)}\n\n` +
+      `⚠️ Rules:\n` +
+      `- Only include violations present in the input list.\n` +
+      `- Do not add extra suggestions or content.\n` +
+      `- Keep field names and structure exact.\n` +
+      `- Respond with valid JSON only — no explanations, no markdown.`,
+  },
+]
 
   const res = await openai.chat.completions.create({
     model: "gpt-4o-mini",
