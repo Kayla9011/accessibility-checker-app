@@ -5,7 +5,7 @@ const features = [
   {
     icon: Shield,
     title: "WCAG Compliance",
-    description: "Comprehensive testing against WCAG 2.1 AA and AAA standards for complete accessibility coverage.",
+    description: "Comprehensive testing against WCAG 2.2 AA and AAA standards for complete accessibility coverage.",
   },
   {
     icon: Zap,

@@ -45,7 +45,7 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
             <div className="text-center space-y-2">
-              <div className="text-3xl font-bold text-primary">WCAG 2.1</div>
+              <div className="text-3xl font-bold text-primary">WCAG 2.2</div>
               <div className="text-sm text-muted-foreground">Compliance Testing</div>
             </div>
             <div className="text-center space-y-2">
